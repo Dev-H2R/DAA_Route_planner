@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DAA Route Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f5f0e8; --dark:#1a1a2e; --card:#fff; --border:#d4c9b0;
+  --dc:#e85d26; --prim:#2e7d32; --bt:#1565c0; --all:#8b5cf6;
+  --text:#1a1a2e; --muted:#7a7065; --shadow:4px 4px 0 #1a1a2e;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,#c4b99a 1px,transparent 1px);background-size:28px 28px;opacity:.4;pointer-events:none;z-index:0;}
+.wrap{max-width:1140px;margin:0 auto;padding:0 20px;position:relative;z-index:1;}
+
+header{padding:28px 0 22px;border-bottom:3px solid var(--dark);margin-bottom:28px;}
+.hrow{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+h1{font-family:'Unbounded',sans-serif;font-size:clamp(1.4rem,3.5vw,2.2rem);font-weight:900;line-height:1.1;letter-spacing:-1px;}
+h1 span{color:var(--dc);}
+.sub{font-size:.7rem;color:var(--muted);margin-top:4px;letter-spacing:1px;}
+.pills{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.pill{font-size:.65rem;font-weight:700;letter-spacing:1px;padding:4px 12px;border:2px solid var(--dark);box-shadow:2px 2px 0 var(--dark);text-transform:uppercase;}
+.pill-dc{background:var(--dc);color:#fff;} .pill-pr{background:var(--prim);color:#fff;} .pill-bt{background:var(--bt);color:#fff;}
+
+.grid{display:grid;grid-template-columns:280px 1fr;gap:20px;}
+@media(max-width:780px){.grid{grid-template-columns:1fr;}}
+
+.card{background:var(--card);border:2px solid var(--dark);box-shadow:var(--shadow);padding:20px;}
+.clabel{font-size:.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:16px;}
+
+.frow{margin-bottom:12px;}
+label{display:block;font-size:.66rem;color:var(--muted);margin-bottom:4px;letter-spacing:1px;}
+select{width:100%;background:var(--bg);border:2px solid var(--dark);color:var(--text);padding:8px 11px;font-family:'JetBrains Mono',monospace;font-size:.8rem;outline:none;cursor:pointer;box-shadow:2px 2px 0 var(--dark);}
+
+/* TOGGLE BUTTONS */
+.toggle-group{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.tbtn{width:100%;padding:8px 11px;background:var(--bg);border:2px solid var(--dark);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;cursor:pointer;text-align:left;box-shadow:2px 2px 0 var(--dark);transition:all .12s;display:flex;align-items:center;gap:7px;}
+.tbtn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--dark);}
+.tdot{width:7px;height:7px;border-radius:50%;border:2px solid currentColor;flex-shrink:0;transition:background .15s;}
+.tbtn.a-all{background:var(--all);color:#fff;border-color:var(--all);box-shadow:2px 2px 0 #5b3db5;}
+.tbtn.a-dc {background:var(--dc); color:#fff;border-color:var(--dc); box-shadow:2px 2px 0 #a33e18;}
+.tbtn.a-pr {background:var(--prim);color:#fff;border-color:var(--prim);box-shadow:2px 2px 0 #1b4d1e;}
+.tbtn.a-bt {background:var(--bt); color:#fff;border-color:var(--bt); box-shadow:2px 2px 0 #0d3f7a;}
+.tbtn[class*=" a-"] .tdot,.tbtn[class$=" a-all"] .tdot,.tbtn.a-all .tdot,.tbtn.a-dc .tdot,.tbtn.a-pr .tdot,.tbtn.a-bt .tdot{background:#fff;}
+
+.run-btn{width:100%;padding:12px;background:var(--dark);color:#fff;border:2px solid var(--dark);font-family:'Unbounded',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;letter-spacing:1px;box-shadow:4px 4px 0 var(--dc);transition:all .15s;margin-bottom:6px;}
+.run-btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--dc);}
+.run-btn:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--dc);}
+
+.info-box{margin-top:16px;font-size:.66rem;line-height:1.9;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;}
+.info-box strong{color:var(--text);}
+
+/* CANVAS */
+#canvas{width:100%;display:block;border:2px solid var(--dark);transition:border-color .3s;}
+#canvas.mode-dc{border-color:var(--dc);} #canvas.mode-pr{border-color:var(--prim);}
+#canvas.mode-bt{border-color:var(--bt);} #canvas.mode-all{border-color:var(--all);}
+
+/* STEP CONTROLS */
+.stepper{margin-top:14px;display:none;}
+.stepper.show{display:block;}
+.step-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.sbtn{padding:7px 14px;border:2px solid var(--dark);background:var(--bg);font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;cursor:pointer;box-shadow:2px 2px 0 var(--dark);transition:all .12s;flex-shrink:0;}
+.sbtn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--dark);}
+.sbtn:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:2px 2px 0 var(--dark);}
+.sbtn.play{background:var(--dark);color:#fff;}
+.step-counter{font-size:.68rem;color:var(--muted);white-space:nowrap;}
+.step-progress{flex:1;height:6px;background:#e5ddd0;border:1px solid var(--border);border-radius:0;}
+.step-progress-fill{height:100%;background:var(--dark);transition:width .2s;border-radius:0;}
+
+/* NARRATION BOX */
+.narration{background:var(--dark);color:#e2fbe8;font-size:.72rem;line-height:1.8;padding:12px 14px;border:2px solid var(--dark);min-height:56px;position:relative;}
+.narration .nar-step{color:#f9c74f;font-weight:700;}
+.narration .nar-msg{color:#e2fbe8;}
+.nar-algo-tag{font-size:.6rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;}
+.nar-dc{color:var(--dc);} .nar-pr{color:#4caf50;} .nar-bt{color:#64b5f6;} .nar-all{color:#c084fc;}
+
+/* LEGEND */
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:.63rem;}
+.leg{display:flex;align-items:center;gap:5px;}
+.ldot{width:10px;height:10px;border:2px solid var(--dark);border-radius:50%;}
+
+/* RESULTS */
+.results{margin-top:20px;display:none;}
+.results.show{display:block;}
+.algo-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+@media(max-width:680px){.algo-cards{grid-template-columns:1fr;}}
+.algo-card{border:2px solid var(--dark);box-shadow:var(--shadow);overflow:hidden;animation:fadeUp .4s ease both;}
+.algo-card:nth-child(2){animation-delay:.1s;} .algo-card:nth-child(3){animation-delay:.2s;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.ach{padding:9px 13px;font-size:.62rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#fff;}
+.ach-dc{background:var(--dc);} .ach-pr{background:var(--prim);} .ach-bt{background:var(--bt);}
+.acb{padding:13px;background:#fff;font-size:.73rem;line-height:1.9;}
+.acb .ptitle{font-weight:700;font-size:.76rem;color:var(--dark);margin-bottom:5px;}
+.acb .cost{font-size:.9rem;font-weight:700;}
+.c-dc{color:var(--dc);} .c-pr{color:var(--prim);} .c-bt{color:var(--bt);}
+.cplx{font-size:.6rem;color:var(--muted);margin-top:5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="hrow">
+      <div>
+        <h1>DAA<br><span>Route</span> Planner</h1>
+        <div class="sub">// REAL-TIME APPLICATION &nbsp;·&nbsp; DAA LAB PROJECT</div>
+      </div>
+      <div class="pills">
+        <span class="pill pill-dc">Divide &amp; Conquer</span>
+        <span class="pill pill-pr">Prim's MST</span>
+        <span class="pill pill-bt">Backtracking</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT -->
+    <div>
+      <div class="card">
+        <div class="clabel">Configure</div>
+        <div class="frow">
+          <label>Source City</label>
+          <select id="src"><option>Mumbai</option><option>Pune</option><option>Nashik</option><option>Nagpur</option><option>Aurangabad</option></select>
+        </div>
+        <div class="frow">
+          <label>Destination City</label>
+          <select id="dst"><option>Mumbai</option><option>Pune</option><option>Nashik</option><option selected>Nagpur</option><option>Aurangabad</option></select>
+        </div>
+
+        <div class="clabel" style="margin-top:14px;">Select Algorithm</div>
+        <div class="toggle-group">
+          <button class="tbtn a-all" id="btn-all" onclick="setMode('all')"><span class="tdot"></span>All Three</button>
+          <button class="tbtn" id="btn-dc"  onclick="setMode('dc')"><span class="tdot"></span>① Divide &amp; Conquer</button>
+          <button class="tbtn" id="btn-pr"  onclick="setMode('pr')"><span class="tdot"></span>② Prim's Algorithm</button>
+          <button class="tbtn" id="btn-bt"  onclick="setMode('bt')"><span class="tdot"></span>③ Backtracking</button>
+        </div>
+
+        <button class="run-btn" onclick="runAll()">▶ RUN &amp; SHOW STEPS</button>
+
+        <div class="info-box">
+          <strong>① D&amp;C:</strong> Merge Sort on edges. O(n log n)<br>
+          <strong>② Prim's:</strong> Greedy MST expansion. O(V²)<br>
+          <strong>③ Backtrack:</strong> DFS + pruning. O(V!)
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <div class="card">
+        <div class="clabel" id="graphLabel">Graph — City Road Map</div>
+        <canvas id="canvas" height="310"></canvas>
+
+        <!-- STEP CONTROLS -->
+        <div class="stepper" id="stepper">
+          <div class="step-bar">
+            <button class="sbtn" id="btnPrev" onclick="stepBy(-1)">◀ Prev</button>
+            <button class="sbtn play" id="btnPlay" onclick="togglePlay()">▶ Play</button>
+            <button class="sbtn" id="btnNext" onclick="stepBy(1)">Next ▶</button>
+            <div class="step-progress"><div class="step-progress-fill" id="stepFill"></div></div>
+            <span class="step-counter" id="stepCounter">0 / 0</span>
+          </div>
+          <div class="narration" id="narration">
+            <div class="nar-algo-tag" id="narTag"></div>
+            <div class="nar-step" id="narStep"></div>
+            <div class="nar-msg"  id="narMsg"></div>
+          </div>
+        </div>
+
+        <div class="legend" id="legend">
+          <div class="leg"><div class="ldot" style="background:#fff"></div>City</div>
+          <div class="leg"><div class="ldot" style="background:var(--prim)"></div>MST Edge</div>
+          <div class="leg"><div class="ldot" style="background:var(--bt)"></div>Best Path</div>
+        </div>
+      </div>
+
+      <div class="results" id="results">
+        <div class="algo-cards" id="algoCards"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── GRAPH DATA ───────────────────────────────────────────
+const graph = {
+  Mumbai:     {Pune:148, Nashik:167, Nagpur:836},
+  Pune:       {Mumbai:148, Nashik:210, Nagpur:700, Aurangabad:234},
+  Nashik:     {Mumbai:167, Pune:210, Aurangabad:188},
+  Nagpur:     {Mumbai:836, Pune:700, Aurangabad:489},
+  Aurangabad: {Pune:234, Nashik:188, Nagpur:489}
+};
+const cities = Object.keys(graph);
+
+// ─── THEME PER MODE ───────────────────────────────────────
+const THEME = {
+  all:{ color:'#8b5cf6', bg:'#f3f0ff', label:'ALL ALGORITHMS' },
+  dc: { color:'#e85d26', bg:'#fff4ee', label:'DIVIDE & CONQUER' },
+  pr: { color:'#2e7d32', bg:'#edf7ed', label:"PRIM'S MST" },
+  bt: { color:'#1565c0', bg:'#e8f0fe', label:'BACKTRACKING' },
+};
+
+// ─── STATE ───────────────────────────────────────────────
+const pos = {};
+let currentMode = 'all';
+let steps = [];        // array of snapshot objects
+let stepIdx = 0;
+let playTimer = null;
+let playing = false;
+
+// ─── LAYOUT ───────────────────────────────────────────────
+function layoutGraph(){
+  const cv=document.getElementById('canvas');
+  const W=cv.offsetWidth, H=310;
+  cv.width=W; cv.height=H;
+  const cx=W/2, cy=H/2, r=Math.min(W,H)*0.36;
+  cities.forEach((c,i)=>{
+    const a=(2*Math.PI*i/cities.length)-Math.PI/2;
+    pos[c]={x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)};
+  });
+}
+
+// ─── DRAW ONE SNAPSHOT ────────────────────────────────────
+// snapshot = { hlEdges:[{a,b,col}], hlNodes:{city:col},
+//              dimEdges:[{a,b}], arrows:[{a,b,col}] }
+function drawSnapshot(snap){
+  const cv=document.getElementById('canvas');
+  const ctx=cv.getContext('2d');
+  const T=THEME[currentMode];
+
+  ctx.fillStyle=T.bg; ctx.fillRect(0,0,cv.width,cv.height);
+
+  // collect all edges
+  const allEdges=[];
+  const seen=new Set();
+  for(const a of cities) for(const [b,d] of Object.entries(graph[a])){
+    const k=[a,b].sort().join('-');
+    if(!seen.has(k)){seen.add(k);allEdges.push({a,b,d});}
+  }
+
+  const hlSet = new Set((snap.hlEdges||[]).map(e=>[e.a,e.b].sort().join('-')));
+
+  // dim base edges
+  for(const {a,b} of allEdges){
+    const k=[a,b].sort().join('-');
+    if(hlSet.has(k)) continue;
+    const pa=pos[a],pb=pos[b];
+    ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y);
+    ctx.strokeStyle='#ddd'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+
+  // highlighted edges with glow
+  for(const {a,b,col} of (snap.hlEdges||[])){
+    const pa=pos[a],pb=pos[b];
+    ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y);
+    ctx.strokeStyle=col+'44'; ctx.lineWidth=12; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y);
+    ctx.strokeStyle=col; ctx.lineWidth=4; ctx.stroke();
+
+    // animated arrow head mid-edge
+    const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
+    const angle=Math.atan2(pb.y-pa.y, pb.x-pa.x);
+    ctx.beginPath();
+    ctx.moveTo(mx,my);
+    ctx.lineTo(mx-12*Math.cos(angle-0.4), my-12*Math.sin(angle-0.4));
+    ctx.lineTo(mx-12*Math.cos(angle+0.4), my-12*Math.sin(angle+0.4));
+    ctx.closePath(); ctx.fillStyle=col; ctx.fill();
+  }
+
+  // distance labels
+  for(const {a,b,d} of allEdges){
+    const pa=pos[a],pb=pos[b];
+    const mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
+    const k=[a,b].sort().join('-');
+    const isHL=hlSet.has(k);
+    const col=isHL?(snap.hlEdges.find(e=>[e.a,e.b].sort().join('-')===k)?.col||T.color):'#bbb';
+    ctx.fillStyle='rgba(255,255,255,0.88)'; ctx.fillRect(mx-19,my-9,38,15);
+    ctx.font='10px JetBrains Mono,monospace';
+    ctx.fillStyle=col; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(d+'km',mx,my);
+  }
+
+  // nodes
+  for(const c of cities){
+    const p=pos[c];
+    const nodeCol=(snap.hlNodes||{})[c]||null;
+    const r=nodeCol?22:19;
+
+    if(nodeCol){
+      ctx.beginPath(); ctx.arc(p.x,p.y,r+6,0,Math.PI*2);
+      ctx.fillStyle=nodeCol+'33'; ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2);
+    ctx.fillStyle=nodeCol||'#fff'; ctx.fill();
+    ctx.strokeStyle=nodeCol||'#1a1a2e'; ctx.lineWidth=nodeCol?3:2; ctx.stroke();
+
+    ctx.font=`bold ${nodeCol?11:10}px JetBrains Mono,monospace`;
+    ctx.fillStyle=nodeCol?'#fff':'#1a1a2e';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(c.substring(0,3).toUpperCase(),p.x,p.y);
+  }
+
+  // mode badge
+  ctx.fillStyle='rgba(255,255,255,0.92)'; ctx.fillRect(8,8,172,22);
+  ctx.strokeStyle=T.color; ctx.lineWidth=2; ctx.strokeRect(8,8,172,22);
+  ctx.font='bold 10px JetBrains Mono,monospace';
+  ctx.fillStyle=T.color; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('▶ '+T.label,14,19);
+}
+
+// ─── STEP BUILDER ─────────────────────────────────────────
+// Each step = { snap, tag, stepLabel, msg }
+
+function buildStepsDC(sorted){
+  const out=[];
+  // Intro
+  out.push({
+    snap:{hlEdges:[],hlNodes:{}},
+    tag:'dc', stepLabel:'START',
+    msg:'Divide & Conquer — Merge Sort will sort all road edges by distance from shortest to longest.'
+  });
+  // Show each edge being "discovered" unsorted
+  const edges=[...sorted].sort(()=>Math.random()-.5); // shuffle for "before sort" effect
+  let revealed=[];
+  for(let i=0;i<sorted.length;i++){
+    const e=sorted[i];
+    revealed.push({a:e[0],b:e[1],col:'#e85d26'});
+    const hlNodes={};
+    revealed.forEach(r=>{hlNodes[r.a]='#e85d26';hlNodes[r.b]='#e85d26';});
+    out.push({
+      snap:{hlEdges:[...revealed],hlNodes},
+      tag:'dc', stepLabel:`EDGE ${i+1} / ${sorted.length}`,
+      msg:`Sorted edge #${i+1}: ${e[0]} ↔ ${e[1]} = ${e[2]}km. Merge Sort places this in its correct position.`
+    });
+  }
+  // Final
+  out.push({
+    snap:{hlEdges:sorted.map(e=>({a:e[0],b:e[1],col:'#e85d26'})),
+          hlNodes:Object.fromEntries(cities.map(c=>[c,'#e85d26']))},
+    tag:'dc', stepLabel:'DONE ✓',
+    msg:`All ${sorted.length} edges sorted! Shortest: ${sorted[0][0]}↔${sorted[0][1]} (${sorted[0][2]}km). This sorted order helps other algorithms pick cheapest edges fast.`
+  });
+  return out;
+}
+
+function buildStepsPR(src, mst, total){
+  const out=[];
+  out.push({
+    snap:{hlEdges:[],hlNodes:{[src]:'#2e7d32'}},
+    tag:'pr', stepLabel:'START',
+    msg:`Prim's Algorithm starts at ${src}. We will greedily grow the MST by always picking the cheapest edge to a new city.`
+  });
+  const builtEdges=[];
+  const visitedNodes={[src]:'#2e7d32'};
+  for(const [a,b,d] of mst){
+    // show "considering" state — highlight the edge being picked
+    out.push({
+      snap:{hlEdges:[...builtEdges,{a,b,col:'#f9c74f'}],hlNodes:{...visitedNodes,[b]:'#f9c74f'}},
+      tag:'pr', stepLabel:`PICKING EDGE`,
+      msg:`Considering cheapest available edge: ${a} → ${b} (${d}km). This connects a new unvisited city!`
+    });
+    builtEdges.push({a,b,col:'#2e7d32'});
+    visitedNodes[b]='#2e7d32';
+    out.push({
+      snap:{hlEdges:[...builtEdges],hlNodes:{...visitedNodes}},
+      tag:'pr', stepLabel:`ADDED TO MST`,
+      msg:`✓ Added ${a} → ${b} (${d}km) to MST. Now ${Object.keys(visitedNodes).length} cities are connected.`
+    });
+  }
+  out.push({
+    snap:{hlEdges:builtEdges,hlNodes:visitedNodes},
+    tag:'pr', stepLabel:'MST COMPLETE ✓',
+    msg:`Prim's MST done! All ${cities.length} cities connected with minimum total cost of ${total}km. This is the cheapest possible road network.`
+  });
+  return out;
+}
+
+function buildStepsBT(src, dst, path, cost, log){
+  const out=[];
+  out.push({
+    snap:{hlEdges:[],hlNodes:{[src]:'#1565c0'}},
+    tag:'bt', stepLabel:'START',
+    msg:`Backtracking starts at ${src}. Goal: reach ${dst}. It explores all routes using DFS and prunes paths that are already too costly.`
+  });
+
+  // Simulate path exploration step by step using the log entries
+  const exploredEdges=[];
+  const exploredNodes={[src]:'#1565c0'};
+  let stepNum=0;
+  for(const entry of log){
+    stepNum++;
+    if(entry.startsWith('✓')){
+      // found a complete path
+      const match=entry.match(/Found: (.+) \[(\d+)km\]/);
+      if(match){
+        const pathCities=match[1].split('→');
+        const pathEdges=[];
+        const pathNodeMap={};
+        for(let i=0;i<pathCities.length-1;i++){
+          pathEdges.push({a:pathCities[i],b:pathCities[i+1],col:'#4caf50'});
+          pathNodeMap[pathCities[i]]='#4caf50';
+        }
+        pathNodeMap[pathCities[pathCities.length-1]]='#4caf50';
+        out.push({
+          snap:{hlEdges:pathEdges,hlNodes:pathNodeMap},
+          tag:'bt', stepLabel:`PATH FOUND`,
+          msg:`✓ Found complete path: ${match[1]} = ${match[2]}km. Backtracking records this and continues searching for a cheaper one.`
+        });
+      }
+    } else if(entry.startsWith('✗')){
+      const match=entry.match(/Prune: (\w+) \((\d+)km\)/);
+      if(match){
+        out.push({
+          snap:{hlEdges:[...exploredEdges],hlNodes:{...exploredNodes,[match[1]]:'#e85d26'}},
+          tag:'bt', stepLabel:`PRUNED ✗`,
+          msg:`✗ Pruning ${match[1]}! Cost would be ${match[2]}km which is already worse than best found. Skip this branch.`
+        });
+      }
+    }
+    if(stepNum>18) break; // cap for UX
+  }
+
+  // Final best path
+  if(path.length>1){
+    const finalEdges=[];
+    const finalNodes={};
+    for(let i=0;i<path.length-1;i++) finalEdges.push({a:path[i],b:path[i+1],col:'#1565c0'});
+    path.forEach(c=>finalNodes[c]='#1565c0');
+    out.push({
+      snap:{hlEdges:finalEdges,hlNodes:finalNodes},
+      tag:'bt', stepLabel:'BEST PATH ✓',
+      msg:`Backtracking complete! Best path: ${path.join(' → ')} = ${cost}km. All other routes were either longer or pruned.`
+    });
+  }
+  return out;
+}
+
+function buildStepsAll(src, dst, sorted, mst, total, path, cost){
+  // Combine all steps with section markers
+  const dcSteps = buildStepsDC(sorted);
+  const prSteps = buildStepsPR(src, mst, total);
+  const btSteps = buildStepsBT(src, dst, path, cost, []);
+
+  // for "all" mode, re-run BT to get real log
+  const {log:btLog} = backtrack(src,dst);
+  const btStepsFull = buildStepsBT(src, dst, path, cost, btLog);
+
+  return [...dcSteps, ...prSteps, ...btStepsFull];
+}
+
+// ─── ALGORITHMS ───────────────────────────────────────────
+function mergeSort(arr){
+  if(arr.length<=1) return arr;
+  const mid=Math.floor(arr.length/2);
+  return mergeFn(mergeSort(arr.slice(0,mid)), mergeSort(arr.slice(mid)));
+}
+function mergeFn(l,r){
+  const res=[]; let i=0,j=0;
+  while(i<l.length&&j<r.length) l[i][2]<=r[j][2]?res.push(l[i++]):res.push(r[j++]);
+  return [...res,...l.slice(i),...r.slice(j)];
+}
+function getAllEdges(){
+  const edges=[],seen=new Set();
+  for(const a of cities) for(const [b,d] of Object.entries(graph[a])){
+    const k=[a,b].sort().join('-');
+    if(!seen.has(k)){seen.add(k);edges.push([a,b,d]);}
+  }
+  return mergeSort(edges);
+}
+function prims(start){
+  const visited=new Set([start]),mst=[],log=[];
+  let total=0;
+  while(visited.size<cities.length){
+    let best=null,bc=Infinity;
+    for(const c of visited) for(const [nb,d] of Object.entries(graph[c]))
+      if(!visited.has(nb)&&d<bc){bc=d;best=[c,nb,d];}
+    if(!best) break;
+    mst.push(best); visited.add(best[1]); total+=bc;
+    log.push(`Pick: ${best[0]} → ${best[1]} (${best[2]}km)`);
+  }
+  return {mst,total,log};
+}
+function backtrack(start,end){
+  const best={path:[],cost:Infinity},log=[];
+  function dfs(node,path,cost){
+    if(node===end){
+      if(cost<best.cost){best.path=[...path];best.cost=cost;}
+      log.push(`✓ Found: ${path.join('→')} [${cost}km]`); return;
+    }
+    for(const [nb,d] of Object.entries(graph[node]||{})){
+      if(path.includes(nb)) continue;
+      if(cost+d>=best.cost){log.push(`✗ Prune: ${nb} (${cost+d}km)`);continue;}
+      path.push(nb); dfs(nb,path,cost+d); path.pop();
+    }
+  }
+  dfs(start,[start],0);
+  return {path:best.path,cost:best.cost,log};
+}
+
+// ─── STEPPER UI ───────────────────────────────────────────
+function renderStep(){
+  if(!steps.length) return;
+  const s=steps[stepIdx];
+  drawSnapshot(s.snap);
+
+  // narration
+  const tagClasses={dc:'nar-dc',pr:'nar-pr',bt:'nar-bt',all:'nar-all'};
+  const tagLabels={dc:'① DIVIDE & CONQUER',pr:'② PRIM\'S MST',bt:'③ BACKTRACKING',all:'● ALL ALGORITHMS'};
+  document.getElementById('narTag').className='nar-algo-tag '+(tagClasses[s.tag]||'nar-all');
+  document.getElementById('narTag').textContent=tagLabels[s.tag]||'';
+  document.getElementById('narStep').textContent='['+s.stepLabel+']  ';
+  document.getElementById('narMsg').textContent=s.msg;
+
+  // progress
+  const pct=steps.length>1?Math.round(stepIdx/(steps.length-1)*100):100;
+  document.getElementById('stepFill').style.width=pct+'%';
+  document.getElementById('stepCounter').textContent=(stepIdx+1)+' / '+steps.length;
+
+  document.getElementById('btnPrev').disabled=(stepIdx===0);
+  document.getElementById('btnNext').disabled=(stepIdx===steps.length-1);
+}
+
+function stepBy(d){
+  stepIdx=Math.max(0,Math.min(steps.length-1,stepIdx+d));
+  renderStep();
+}
+
+function togglePlay(){
+  playing=!playing;
+  document.getElementById('btnPlay').textContent=playing?'⏸ Pause':'▶ Play';
+  if(playing){
+    if(stepIdx>=steps.length-1) stepIdx=0;
+    playTimer=setInterval(()=>{
+      if(stepIdx>=steps.length-1){ clearInterval(playTimer); playing=false;
+        document.getElementById('btnPlay').textContent='▶ Play'; return; }
+      stepIdx++; renderStep();
+    },900);
+  } else {
+    clearInterval(playTimer);
+  }
+}
+
+// ─── MODE SWITCH ──────────────────────────────────────────
+function setMode(mode){
+  currentMode=mode;
+  const ac={all:'a-all',dc:'a-dc',pr:'a-pr',bt:'a-bt'};
+  ['all','dc','pr','bt'].forEach(m=>{
+    document.getElementById('btn-'+m).className='tbtn'+(m===mode?' '+ac[m]:'');
+  });
+  document.getElementById('canvas').className='mode-'+mode;
+
+  // legend
+  const lm={
+    all:`<div class="leg"><div class="ldot" style="background:#2e7d32"></div>MST Edge</div>
+         <div class="leg"><div class="ldot" style="background:#1565c0"></div>BT Path</div>`,
+    dc:`<div class="leg"><div class="ldot" style="background:#e85d26"></div>Sorted Edge</div>`,
+    pr:`<div class="leg"><div class="ldot" style="background:#2e7d32"></div>MST Edge</div>`,
+    bt:`<div class="leg"><div class="ldot" style="background:#1565c0"></div>Best Path</div>`,
+  };
+  document.getElementById('legend').innerHTML=
+    `<div class="leg"><div class="ldot" style="background:#fff;border:2px solid #1a1a2e"></div>City</div>`+lm[mode];
+
+  // re-render current step in new color
+  if(steps.length) renderStep();
+}
+
+// ─── MAIN RUN ─────────────────────────────────────────────
+function runAll(){
+  const src=document.getElementById('src').value;
+  const dst=document.getElementById('dst').value;
+  if(src===dst){alert('Choose different cities!');return;}
+  if(playing){clearInterval(playTimer);playing=false;document.getElementById('btnPlay').textContent='▶ Play';}
+
+  layoutGraph();
+  const sorted=getAllEdges();
+  const {mst,total,log:primLog}=prims(src);
+  const {path,cost,log:btLog}=backtrack(src,dst);
+
+  // Build steps based on mode
+  if(currentMode==='all')    steps=buildStepsAll(src,dst,sorted,mst,total,path,cost);
+  else if(currentMode==='dc') steps=buildStepsDC(sorted);
+  else if(currentMode==='pr') steps=buildStepsPR(src,mst,total);
+  else                        steps=buildStepsBT(src,dst,path,cost,btLog);
+
+  stepIdx=0;
+  document.getElementById('stepper').classList.add('show');
+  renderStep();
+
+  // Result cards
+  document.getElementById('results').classList.add('show');
+  const cardDC=`<div class="algo-card"><div class="ach ach-dc">① Divide &amp; Conquer</div><div class="acb">
+    <div class="ptitle">Roads Sorted by Distance</div>
+    ${sorted.map((e,i)=>`<div>${i+1}. ${e[0]} ↔ ${e[1]} = ${e[2]}km</div>`).join('')}
+    <div class="cplx">O(n log n) &nbsp;|&nbsp; ${sorted.length} edges</div></div></div>`;
+
+  const cardPR=`<div class="algo-card"><div class="ach ach-pr">② Prim's MST</div><div class="acb">
+    <div class="ptitle">MST from ${src}</div>
+    ${mst.map(e=>`<div>${e[0]} → ${e[1]} : ${e[2]}km</div>`).join('')}
+    <div class="cost c-pr">${total}km total</div>
+    <div class="cplx">O(V²) &nbsp;|&nbsp; cheapest network</div></div></div>`;
+
+  const cardBT=`<div class="algo-card"><div class="ach ach-bt">③ Backtracking</div><div class="acb">
+    <div class="ptitle">${src} → ${dst}</div>
+    <div>${path.length?path.join(' → '):'No path found'}</div>
+    ${path.length?`<div class="cost c-bt">${cost}km</div>`:''}
+    <div class="cplx">O(V!) &nbsp;|&nbsp; pruning applied</div></div></div>`;
+
+  const show={all:cardDC+cardPR+cardBT,dc:cardDC,pr:cardPR,bt:cardBT};
+  document.getElementById('algoCards').innerHTML=show[currentMode];
+}
+
+window.onload=()=>{ layoutGraph(); drawSnapshot({hlEdges:[],hlNodes:{}}); };
+window.onresize=()=>{ layoutGraph(); if(steps.length) renderStep(); else drawSnapshot({hlEdges:[],hlNodes:{}}); };
+</script>
+</body>
+</html>
